@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.gradle.declarative.dsl.schema.FqName.Empty.packageName
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -6,12 +6,13 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.sqldelight)
+    alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.secrets)
 }
 
 kotlin {
     androidTarget {
-        @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
         }
@@ -25,50 +26,110 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+
+            // Link iOS frameworks
+            linkerOpts.add("-framework")
+            linkerOpts.add("CoreLocation")
+            linkerOpts.add("-framework")
+            linkerOpts.add("MapKit")
+            linkerOpts.add("-framework")
+            linkerOpts.add("UIKit")
         }
     }
 
     sourceSets {
-        androidMain.dependencies {
-            implementation(libs.androidx.compose.ui.tooling.preview)
-            implementation(libs.androidx.activity.compose)
-            implementation(libs.ktor.client.okhttp)
-        }
-        iosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
-        }
         commonMain.dependencies {
+            // Compose Multiplatform
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
+            implementation(libs.material.icons.extended)
 
+            // Navigation
             implementation(libs.navigation.compose)
-            implementation(libs.lifecycle.runtime.compose)
-            implementation(libs.material.icons.core)
 
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.content.negotiation)
-            implementation(libs.ktor.serialization.kotlinx.json)
+            // Lifecycle
+            implementation(libs.androidx.lifecycle.viewmodel)
+            implementation(libs.androidx.lifecycle.viewmodel.compose)
+            implementation(libs.androidx.lifecycle.runtime.compose)
 
-            implementation(libs.coil.compose)
-            implementation(libs.coil.network.ktor)
-            implementation(libs.koin.core)
+            // Koin DI
+            api(libs.koin.core)
+            implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
+
+            // SQLDelight
+            implementation(libs.sqldelight.coroutines)
+
+            // Coroutines
+            implementation(libs.kotlinx.coroutines.core)
+
+            // DateTime and UUID
+            implementation(libs.kotlinx.datetime)
+
+            // FileKit
+            implementation(libs.filekit.core)
+            implementation(libs.filekit.dialogs)
+            implementation(libs.filekit.dialogs.compose)
+            implementation(libs.filekit.coil)
+
+            // Moko permissions
+            implementation(libs.moko.permissions)
+            implementation(libs.moko.permissions.compose)
+            implementation(libs.permissions.camera)
+            implementation(libs.permissions.gallery)
+            implementation(libs.permissions.location)
+            implementation(libs.permissions.storage)
+        }
+
+        androidMain.dependencies {
+            // Android Compose
+            implementation(compose.preview)
+            implementation(libs.androidx.activity.compose)
+
+            // Koin Android
+            implementation(libs.koin.android)
+            implementation(libs.koin.androidx.compose)
+
+            // SQLDelight Android
+            implementation(libs.sqldelight.driver.android)
+
+            // Android Coroutines
+            implementation(libs.kotlinx.coroutines.android)
+
+            // Location Services
+            implementation(libs.play.services.location)
+
+            // Maps
+            implementation(libs.play.services.maps)
+            implementation(libs.maps.compose)
+            implementation(libs.maps.compose.utils)
+
+            // Permissions
+            implementation(libs.accompanist.permissions)
+
+            // Coil
+            implementation(libs.coil.compose)
+        }
+
+        nativeMain.dependencies {
+            // SQLDelight iOS
+            implementation(libs.sqldelight.driver.native)
         }
     }
 }
 
 android {
-    namespace = "com.jetbrains.kmpapp"
-    compileSdk = 35
+    namespace = "org.ilnytskyi.mappincmp"
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.jetbrains.kmpapp"
-        minSdk = 24
-        targetSdk = 35
+        applicationId = "org.ilnytskyi.mappincmp"
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
     }
@@ -88,6 +149,21 @@ android {
     }
 }
 
+secrets {
+    propertiesFileName = "secrets.properties"
+    defaultPropertiesFileName = "local.defaults.properties"
+    ignoreList.add("keyToIgnore")
+    ignoreList.add("sdk.*")
+}
+
+sqldelight {
+    databases {
+        create("MapPinDatabase") {
+            packageName.set("org.ilnytskyi.mappincmp.data.database")
+        }
+    }
+}
+
 dependencies {
-    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(compose.uiTooling)
 }

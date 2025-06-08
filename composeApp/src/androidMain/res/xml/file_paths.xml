@@ -1,0 +1,14 @@
+<paths>
+    <cache-path
+        name="filekit_cache"
+        path="." />
+    <files-path
+        name="filekit_files"
+        path="." />
+    <external-files-path
+        name="filekit_external_files"
+        path="." />
+    <external-cache-path
+        name="filekit_external_cache"
+        path="." />
+</paths>
