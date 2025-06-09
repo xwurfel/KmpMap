@@ -25,11 +25,15 @@ import platform.MapKit.MKAnnotationProtocol
 import platform.MapKit.MKCoordinateRegionMakeWithDistance
 import platform.MapKit.MKMapView
 import platform.MapKit.MKMapViewDelegateProtocol
+import platform.MapKit.MKOverlayProtocol
+import platform.MapKit.MKOverlayRenderer
 import platform.MapKit.MKPolyline
+import platform.MapKit.MKPolylineRenderer
 import platform.MapKit.MKUserTrackingModeNone
 import platform.MapKit.addOverlay
 import platform.MapKit.overlays
 import platform.MapKit.removeOverlays
+import platform.UIKit.UIColor
 import platform.UIKit.UIGestureRecognizerStateBegan
 import platform.UIKit.UILongPressGestureRecognizer
 import platform.darwin.NSObject
@@ -54,7 +58,6 @@ actual fun MapComponent(
         onMapLoaded()
     }
 
-    // Update user location
     LaunchedEffect(userLocation) {
         userLocation?.let { location ->
             val coordinate = CLLocationCoordinate2DMake(location.latitude, location.longitude)
@@ -63,7 +66,6 @@ actual fun MapComponent(
         }
     }
 
-    // Update POI annotations
     LaunchedEffect(pois) {
         mapView.removeAnnotations(mapView.annotations)
 
@@ -73,12 +75,10 @@ actual fun MapComponent(
         }
     }
 
-    // Update route
     LaunchedEffect(routePoints) {
         mapView.removeOverlays(mapView.overlays)
 
         if (routePoints.isNotEmpty()) {
-            // Create coordinates array for polyline
             memScoped {
                 val coordinatesArray = allocArray<CLLocationCoordinate2D>(routePoints.size)
                 routePoints.forEachIndexed { index, location ->
@@ -100,7 +100,6 @@ actual fun MapComponent(
         mapView.showsUserLocation = true
         mapView.userTrackingMode = MKUserTrackingModeNone
 
-        // Add long press gesture
         val longPressGesture = UILongPressGestureRecognizer()
         longPressGesture.minimumPressDuration = 0.5
         longPressGesture.addTarget(
@@ -135,27 +134,25 @@ private class MapViewDelegate(
         onMapLoaded()
     }
 
-    // Handle annotation selection
-//    override fun mapView(mapView: MKMapView, didSelectAnnotation: MKAnnotationProtocol) {
-//        val annotation = didSelectAnnotation as? PoiAnnotation
-//        annotation?.poi?.let { poi ->
-//            onPoiClick(poi)
-//        }
-//    }
-//
-//    // Handle overlay rendering for route display
-//    override fun mapView(
-//        mapView: MKMapView,
-//        rendererForOverlay: MKOverlayProtocol
-//    ): MKOverlayRenderer {
-//        if (rendererForOverlay is MKPolyline) {
-//            val renderer = MKPolylineRenderer(rendererForOverlay)
-//            renderer.strokeColor = UIColor.blueColor
-//            renderer.lineWidth = 3.0
-//            return renderer
-//        }
-//        return MKOverlayRenderer(rendererForOverlay)
-//    }
+    override fun mapView(mapView: MKMapView, didSelectAnnotation: MKAnnotationProtocol) {
+        val annotation = didSelectAnnotation as? PoiAnnotation
+        annotation?.poi?.let { poi ->
+            onPoiClick(poi)
+        }
+    }
+
+    override fun mapView(
+        mapView: MKMapView,
+        rendererForOverlay: MKOverlayProtocol
+    ): MKOverlayRenderer {
+        if (rendererForOverlay is MKPolyline) {
+            val renderer = MKPolylineRenderer(rendererForOverlay)
+            renderer.strokeColor = UIColor.blueColor
+            renderer.lineWidth = 3.0
+            return renderer
+        }
+        return MKOverlayRenderer(rendererForOverlay)
+    }
 
     @OptIn(BetaInteropApi::class)
     @ObjCAction
