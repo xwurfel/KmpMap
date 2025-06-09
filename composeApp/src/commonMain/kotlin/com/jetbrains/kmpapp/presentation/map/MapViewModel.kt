@@ -20,8 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
 
 class MapViewModel(
     private val poiRepository: PoiRepository,
@@ -34,26 +34,108 @@ class MapViewModel(
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
 
     init {
+        initializeScreen()
+    }
+
+    private fun initializeScreen() {
         loadPois()
         checkLocationPermission()
     }
 
+    fun handleLocationAction() {
+        when (_uiState.value.locationPermissionState) {
+            PermissionState.Granted -> getCurrentLocation()
+            PermissionState.NotGranted, PermissionState.NotDetermined, PermissionState.Denied -> requestLocationPermission()
+
+            PermissionState.DeniedAlways -> openAppSettings()
+        }
+    }
+
+    fun requestLocationPermission() {
+        viewModelScope.launch {
+            try {
+                permissionsController.providePermission(Permission.LOCATION)
+                updatePermissionState(PermissionState.Granted, hasPermission = true)
+                clearError()
+                getCurrentLocation()
+            } catch (e: Exception) {
+                handlePermissionException(e)
+            }
+        }
+    }
+
+    fun openAppSettings() {
+        permissionsController.openAppSettings()
+    }
+
+    private fun getCurrentLocation() {
+        viewModelScope.launch {
+            if (!verifyLocationPermission()) return@launch
+
+            try {
+                val location = locationRepository.getCurrentLocation()
+                _uiState.update { it.copy(currentLocation = location) }
+            } catch (e: Exception) {
+                showError("Failed to get current location: ${e.message}")
+            }
+        }
+    }
+
+    fun setRouteDestination(location: Location?) {
+        if (location != null) {
+            showRouteTo(location)
+        } else {
+            clearRoute()
+        }
+    }
+
+    private fun showRouteTo(destination: Location) {
+
+        val currentLocation = _uiState.value.currentLocation
+        if (currentLocation == null) {
+            showError("Current location not available for route calculation")
+            return
+        }
+        _uiState.update {
+            it.copy(
+                isLoadingRoute = true, errorMessage = null
+            )
+        }
+
+        calculateRoute(currentLocation, destination)
+    }
+
+    fun clearRoute() {
+        _uiState.update {
+            it.copy(
+                showRouteToLocation = null, routePoints = emptyList()
+            )
+        }
+    }
+
+    fun onMapLoaded() {
+        _uiState.update { it.copy(isMapLoaded = true) }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
     private fun loadPois() {
         viewModelScope.launch {
-            poiRepository.getAllPois()
-                .catch { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = error.message
+            poiRepository.getAllPois().catch { error ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false, errorMessage = error.message
                     )
                 }
-                .collect { pois ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        pois = pois,
-                        errorMessage = null
+            }.collect { pois ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false, pois = pois, errorMessage = null
                     )
                 }
+            }
         }
     }
 
@@ -63,145 +145,82 @@ class MapViewModel(
                 val permissionState = permissionsController.getPermissionState(Permission.LOCATION)
                 val hasPermission = permissionState == PermissionState.Granted
 
-                _uiState.value = _uiState.value.copy(
-                    hasLocationPermission = hasPermission,
-                    locationPermissionState = permissionState
-                )
+                updatePermissionState(permissionState, hasPermission)
 
                 if (hasPermission) {
                     getCurrentLocation()
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "Failed to check location permission: ${e.message}"
-                )
+                showError("Failed to check location permission: ${e.message}")
             }
         }
     }
 
-    fun requestLocationPermission() {
-        viewModelScope.launch {
-            try {
-                permissionsController.providePermission(Permission.LOCATION)
-
-                _uiState.value = _uiState.value.copy(
-                    hasLocationPermission = true,
-                    locationPermissionState = PermissionState.Granted,
-                    errorMessage = null
-                )
-
-                getCurrentLocation()
-            } catch (deniedAlways: DeniedAlwaysException) {
-                _uiState.value = _uiState.value.copy(
-                    hasLocationPermission = false,
-                    locationPermissionState = PermissionState.DeniedAlways,
-                    errorMessage = "Location permission is permanently denied. Please enable it in settings."
-                )
-            } catch (denied: DeniedException) {
-                _uiState.value = _uiState.value.copy(
-                    hasLocationPermission = false,
-                    locationPermissionState = PermissionState.Denied,
-                    errorMessage = "Location permission was denied."
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "Failed to request location permission: ${e.message}"
-                )
-            }
+    private suspend fun verifyLocationPermission(): Boolean {
+        val permissionState = runCatching {
+            permissionsController.getPermissionState(Permission.LOCATION)
+        }.getOrElse {
+            showError("Failed to verify location permission")
+            return false
         }
+
+        if (permissionState != PermissionState.Granted) {
+            requestLocationPermission()
+            return false
+        }
+        return true
     }
 
-    fun openAppSettings() {
-        permissionsController.openAppSettings()
-    }
-
-    fun getCurrentLocation() {
-        viewModelScope.launch {
+    private fun calculateRoute(from: Location, to: Location) {
+        CoroutineScope(SupervisorJob()).launch {
             try {
-                val permissionState = permissionsController.getPermissionState(Permission.LOCATION)
-                if (permissionState != PermissionState.Granted) {
-                    requestLocationPermission()
-                    return@launch
+                val routePoints = directionsService.getRoute(from, to)
+                _uiState.update {
+                    it.copy(
+                        showRouteToLocation = to, routePoints = routePoints, isLoadingRoute = false
+                    )
                 }
-
-                val location = locationRepository.getCurrentLocation()
-                _uiState.value = _uiState.value.copy(currentLocation = location)
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "Failed to get current location: ${e.message}"
-                )
-            }
-        }
-    }
-
-    fun showRouteTo(destination: Location) {
-        println("MapViewModel: showRouteTo called with destination: $destination")
-        val currentLocation = _uiState.value.currentLocation
-        if (currentLocation != null) {
-            println("MapViewModel: Current location available: $currentLocation")
-            _uiState.value = _uiState.value.copy(
-                isLoadingRoute = true,
-                errorMessage = null
-            )
-
-            CoroutineScope(SupervisorJob()).launch {
-                supervisorScope {
-                    try {
-                        println("MapViewModel: Calling DirectionsService.getRoute...")
-                        val routePoints = directionsService.getRoute(currentLocation, destination)
-                        println("MapViewModel: Received ${routePoints.size} route points")
-
-                        _uiState.value = _uiState.value.copy(
-                            showRouteToLocation = destination,
-                            routePoints = routePoints,
-                            isLoadingRoute = false
-                        )
-                    } catch (e: Exception) {
-                        println("MapViewModel: Error calculating route: ${e.message}")
-                        e.printStackTrace()
-                        ensureActive()
-                        _uiState.value = _uiState.value.copy(
-                            isLoadingRoute = false,
-                            errorMessage = "Failed to calculate route: ${e.message}"
-                        )
-                    }
+                ensureActive()
+                e.printStackTrace()
+                _uiState.update {
+                    it.copy(
+                        isLoadingRoute = false,
+                        errorMessage = "Failed to calculate route: ${e.message}"
+                    )
                 }
             }
-        } else {
-            println("MapViewModel: No current location available")
-            _uiState.value = _uiState.value.copy(
-                errorMessage = "Current location not available for route calculation"
+        }
+    }
+
+    private fun handlePermissionException(exception: Exception) {
+        when (exception) {
+            is DeniedAlwaysException -> {
+                updatePermissionState(PermissionState.DeniedAlways, hasPermission = false)
+                showError("Location permission is permanently denied. Please enable it in settings.")
+            }
+
+            is DeniedException -> {
+                updatePermissionState(PermissionState.Denied, hasPermission = false)
+                showError("Location permission was denied.")
+            }
+
+            else -> {
+                showError("Failed to request location permission: ${exception.message}")
+            }
+        }
+    }
+
+    private fun updatePermissionState(state: PermissionState, hasPermission: Boolean) {
+        _uiState.update {
+            it.copy(
+                hasLocationPermission = hasPermission, locationPermissionState = state
             )
         }
     }
 
-    fun showRouteToPoi(poi: PointOfInterest) {
-        println("MapViewModel: showRouteToPoi called for POI: ${poi.title}")
-        showRouteTo(poi.location)
-    }
-
-    fun setRouteDestination(location: Location?) {
-        println("MapViewModel: setRouteDestination called with location: $location")
-        if (location != null) {
-            showRouteTo(location)
-        } else {
-            clearRoute()
-        }
-    }
-
-    fun clearRoute() {
-        _uiState.value = _uiState.value.copy(
-            showRouteToLocation = null,
-            routePoints = emptyList()
-        )
-    }
-
-    fun onMapLoaded() {
-        _uiState.value = _uiState.value.copy(isMapLoaded = true)
-    }
-
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
+    private fun showError(message: String) {
+        _uiState.update { it.copy(errorMessage = message) }
     }
 
     data class MapUiState(

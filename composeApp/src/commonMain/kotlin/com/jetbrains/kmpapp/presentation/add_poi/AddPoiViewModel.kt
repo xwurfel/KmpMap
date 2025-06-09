@@ -14,12 +14,11 @@ import dev.icerock.moko.permissions.PermissionsController
 import dev.icerock.moko.permissions.camera.CAMERA
 import dev.icerock.moko.permissions.storage.STORAGE
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.name
-import io.github.vinceglb.filekit.path
 import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
@@ -42,16 +41,18 @@ class AddPoiViewModel(
                 val cameraState = permissionsController.getPermissionState(Permission.CAMERA)
                 val storageState = permissionsController.getPermissionState(Permission.STORAGE)
 
-                _uiState.value = _uiState.value.copy(
-                    cameraPermissionState = cameraState,
-                    storagePermissionState = storageState,
-                    hasCameraPermission = cameraState == PermissionState.Granted,
-                    hasStoragePermission = storageState == PermissionState.Granted
-                )
+                _uiState.update {
+                    it.copy(
+                        cameraPermissionState = cameraState,
+                        storagePermissionState = storageState,
+                        hasCameraPermission = cameraState == PermissionState.Granted,
+                        hasStoragePermission = storageState == PermissionState.Granted
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "Failed to check permissions: ${e.message}"
-                )
+                _uiState.update {
+                    it.copy(errorMessage = "Failed to check permissions: ${e.message}")
+                }
             }
         }
     }
@@ -60,23 +61,29 @@ class AddPoiViewModel(
         viewModelScope.launch {
             try {
                 permissionsController.providePermission(Permission.CAMERA)
-                _uiState.value = _uiState.value.copy(
-                    hasCameraPermission = true,
-                    cameraPermissionState = PermissionState.Granted,
-                    errorMessage = null
-                )
+                _uiState.update {
+                    it.copy(
+                        hasCameraPermission = true,
+                        cameraPermissionState = PermissionState.Granted,
+                        errorMessage = null
+                    )
+                }
             } catch (deniedAlways: DeniedAlwaysException) {
-                _uiState.value = _uiState.value.copy(
-                    hasCameraPermission = false,
-                    cameraPermissionState = PermissionState.DeniedAlways,
-                    errorMessage = "Camera permission is permanently denied. Please enable it in settings."
-                )
+                _uiState.update {
+                    it.copy(
+                        hasCameraPermission = false,
+                        cameraPermissionState = PermissionState.DeniedAlways,
+                        errorMessage = "Camera permission is permanently denied. Please enable it in settings."
+                    )
+                }
             } catch (denied: DeniedException) {
-                _uiState.value = _uiState.value.copy(
-                    hasCameraPermission = false,
-                    cameraPermissionState = PermissionState.Denied,
-                    errorMessage = "Camera permission was denied."
-                )
+                _uiState.update {
+                    it.copy(
+                        hasCameraPermission = false,
+                        cameraPermissionState = PermissionState.Denied,
+                        errorMessage = "Camera permission was denied."
+                    )
+                }
             }
         }
     }
@@ -85,23 +92,29 @@ class AddPoiViewModel(
         viewModelScope.launch {
             try {
                 permissionsController.providePermission(Permission.STORAGE)
-                _uiState.value = _uiState.value.copy(
-                    hasStoragePermission = true,
-                    storagePermissionState = PermissionState.Granted,
-                    errorMessage = null
-                )
+                _uiState.update {
+                    it.copy(
+                        hasStoragePermission = true,
+                        storagePermissionState = PermissionState.Granted,
+                        errorMessage = null
+                    )
+                }
             } catch (deniedAlways: DeniedAlwaysException) {
-                _uiState.value = _uiState.value.copy(
-                    hasStoragePermission = false,
-                    storagePermissionState = PermissionState.DeniedAlways,
-                    errorMessage = "Storage permission is permanently denied. Please enable it in settings."
-                )
+                _uiState.update {
+                    it.copy(
+                        hasStoragePermission = false,
+                        storagePermissionState = PermissionState.DeniedAlways,
+                        errorMessage = "Storage permission is permanently denied. Please enable it in settings."
+                    )
+                }
             } catch (denied: DeniedException) {
-                _uiState.value = _uiState.value.copy(
-                    hasStoragePermission = false,
-                    storagePermissionState = PermissionState.Denied,
-                    errorMessage = "Storage permission was denied."
-                )
+                _uiState.update {
+                    it.copy(
+                        hasStoragePermission = false,
+                        storagePermissionState = PermissionState.Denied,
+                        errorMessage = "Storage permission was denied."
+                    )
+                }
             }
         }
     }
@@ -111,75 +124,46 @@ class AddPoiViewModel(
     }
 
     fun setLocation(latitude: Double, longitude: Double) {
-        println("AddPoiViewModel: Setting location to $latitude, $longitude")
-        _uiState.value = _uiState.value.copy(
-            location = Location(latitude, longitude)
-        )
+        _uiState.update {
+            it.copy(location = Location(latitude, longitude))
+        }
     }
 
     fun updateTitle(title: String) {
-        _uiState.value = _uiState.value.copy(title = title)
+        _uiState.update { it.copy(title = title) }
     }
 
     fun updateDescription(description: String) {
-        _uiState.value = _uiState.value.copy(description = description)
+        _uiState.update { it.copy(description = description) }
     }
 
     fun updateImage(file: PlatformFile?) {
-        println("AddPoiViewModel: updateImage called with file: $file")
-        file?.let {
-            println("AddPoiViewModel: File path: ${it.path}")
-            println("AddPoiViewModel: File name: ${it.name}")
-        }
-        _uiState.value = _uiState.value.copy(selectedImage = file)
-    }
-
-    fun onCameraButtonClicked() {
-        viewModelScope.launch {
-            val cameraState = permissionsController.getPermissionState(Permission.CAMERA)
-            if (cameraState != PermissionState.Granted) {
-                requestCameraPermission()
-            }
-        }
-    }
-
-    fun onGalleryButtonClicked() {
-        viewModelScope.launch {
-            val storageState = permissionsController.getPermissionState(Permission.STORAGE)
-            if (storageState != PermissionState.Granted) {
-                requestStoragePermission()
-            }
-        }
+        _uiState.update { it.copy(selectedImage = file) }
     }
 
     fun savePoi() {
         val state = _uiState.value
 
         if (state.title.isBlank()) {
-            _uiState.value = state.copy(errorMessage = "Title is required")
+            _uiState.update { it.copy(errorMessage = "Title is required") }
             return
         }
 
         if (state.location == null) {
-            _uiState.value = state.copy(errorMessage = "Location is required")
+            _uiState.update { it.copy(errorMessage = "Location is required") }
             return
         }
 
-        _uiState.value = state.copy(isLoading = true, errorMessage = null)
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         viewModelScope.launch {
             try {
                 var imagePath: String? = null
 
-                // Save image if selected
                 state.selectedImage?.let { imageFile ->
-                    println("AddPoiViewModel: Saving image from file: ${imageFile.path}")
                     val imageBytes = imageFile.readBytes()
-                    println("AddPoiViewModel: Image bytes size: ${imageBytes.size}")
                     val fileName = "poi_${Clock.System.now().toEpochMilliseconds()}.jpg"
-                    println("AddPoiViewModel: Generated filename: $fileName")
                     imagePath = fileRepository.saveImage(imageBytes, fileName)
-                    println("AddPoiViewModel: FileRepository returned path: $imagePath")
                 }
 
                 val poi = PointOfInterest(
@@ -190,27 +174,27 @@ class AddPoiViewModel(
                     createdAt = Clock.System.now()
                 )
 
-                println("AddPoiViewModel: Saving POI: $poi")
-                val poiId = poiRepository.savePoi(poi)
-                println("AddPoiViewModel: POI saved with ID: $poiId")
+                poiRepository.savePoi(poi)
 
-                _uiState.value = state.copy(
-                    isLoading = false,
-                    isSaved = true
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isSaved = true
+                    )
+                }
             } catch (e: Exception) {
-                println("AddPoiViewModel: Error saving POI: ${e.message}")
-                e.printStackTrace()
-                _uiState.value = state.copy(
-                    isLoading = false,
-                    errorMessage = "Failed to save POI: ${e.message}"
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Failed to save POI: ${e.message}"
+                    )
+                }
             }
         }
     }
 
     fun clearError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     data class AddPoiUiState(

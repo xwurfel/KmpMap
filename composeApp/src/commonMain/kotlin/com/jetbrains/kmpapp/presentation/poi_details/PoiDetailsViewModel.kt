@@ -11,6 +11,7 @@ import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
@@ -24,58 +25,66 @@ class PoiDetailsViewModel(
     val uiState: StateFlow<PoiDetailsUiState> = _uiState.asStateFlow()
 
     fun loadPoi(poiId: Long) {
-        _uiState.value = _uiState.value.copy(isLoading = true)
+        _uiState.update { it.copy(isLoading = true) }
 
         viewModelScope.launch {
             try {
                 val poi = poiRepository.getPoiById(poiId)
                 if (poi != null) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        poi = poi,
-                        title = poi.title,
-                        description = poi.description,
-                        isEditing = false
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            poi = poi,
+                            title = poi.title,
+                            description = poi.description,
+                            isEditing = false
+                        )
+                    }
                 } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = "POI not found"
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "POI not found"
+                        )
+                    }
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = "Failed to load POI: ${e.message}"
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Failed to load POI: ${e.message}"
+                    )
+                }
             }
         }
     }
 
     fun startEditing() {
-        _uiState.value = _uiState.value.copy(isEditing = true)
+        _uiState.update { it.copy(isEditing = true) }
     }
 
     fun cancelEditing() {
         val poi = _uiState.value.poi
-        _uiState.value = _uiState.value.copy(
-            isEditing = false,
-            title = poi?.title ?: "",
-            description = poi?.description ?: "",
-            selectedImage = null
-        )
+        _uiState.update {
+            it.copy(
+                isEditing = false,
+                title = poi?.title ?: "",
+                description = poi?.description ?: "",
+                selectedImage = null
+            )
+        }
     }
 
     fun updateTitle(title: String) {
-        _uiState.value = _uiState.value.copy(title = title)
+        _uiState.update { it.copy(title = title) }
     }
 
     fun updateDescription(description: String) {
-        _uiState.value = _uiState.value.copy(description = description)
+        _uiState.update { it.copy(description = description) }
     }
 
     fun updateImage(file: PlatformFile?) {
-        _uiState.value = _uiState.value.copy(selectedImage = file)
+        _uiState.update { it.copy(selectedImage = file) }
     }
 
     fun savePoi() {
@@ -83,11 +92,11 @@ class PoiDetailsViewModel(
         val currentPoi = state.poi ?: return
 
         if (state.title.isBlank()) {
-            _uiState.value = state.copy(errorMessage = "Title is required")
+            _uiState.update { it.copy(errorMessage = "Title is required") }
             return
         }
 
-        _uiState.value = state.copy(isLoading = true, errorMessage = null)
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         viewModelScope.launch {
             try {
@@ -112,18 +121,22 @@ class PoiDetailsViewModel(
 
                 poiRepository.updatePoi(updatedPoi)
 
-                _uiState.value = state.copy(
-                    isLoading = false,
-                    isEditing = false,
-                    poi = updatedPoi,
-                    selectedImage = null,
-                    isSaved = true
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isEditing = false,
+                        poi = updatedPoi,
+                        selectedImage = null,
+                        isSaved = true
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.value = state.copy(
-                    isLoading = false,
-                    errorMessage = "Failed to update POI: ${e.message}"
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Failed to update POI: ${e.message}"
+                    )
+                }
             }
         }
     }
@@ -131,26 +144,29 @@ class PoiDetailsViewModel(
     fun deletePoi() {
         val currentPoi = _uiState.value.poi ?: return
 
-        _uiState.value = _uiState.value.copy(isLoading = true)
+        _uiState.update { it.copy(isLoading = true) }
 
         viewModelScope.launch {
             try {
-                // Delete image if exists
                 currentPoi.imagePath?.let { imagePath ->
                     fileRepository.deleteImage(imagePath)
                 }
 
                 poiRepository.deletePoi(currentPoi.id)
 
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isDeleted = true
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isDeleted = true
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = "Failed to delete POI: ${e.message}"
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Failed to delete POI: ${e.message}"
+                    )
+                }
             }
         }
     }
@@ -158,15 +174,12 @@ class PoiDetailsViewModel(
     fun requestRoute() {
         val poi = _uiState.value.poi
         if (poi != null) {
-            println("PoiDetailsViewModel: Requesting route to ${poi.location}")
             routeManager.requestRoute(poi.location)
-        } else {
-            println("PoiDetailsViewModel: Cannot request route - no POI loaded")
         }
     }
 
     fun clearError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     data class PoiDetailsUiState(

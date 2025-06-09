@@ -115,11 +115,14 @@ class GoogleDirectionsService(
 @Serializable
 data class DirectionsResponse(
     val status: String,
-    val routes: List<Route>
+    val routes: List<Route> = emptyList(),
+    @kotlinx.serialization.SerialName("error_message")
+    val errorMessage: String? = null
 )
 
 @Serializable
 data class Route(
+    @kotlinx.serialization.SerialName("overview_polyline")
     val overviewPolyline: OverviewPolyline
 )
 

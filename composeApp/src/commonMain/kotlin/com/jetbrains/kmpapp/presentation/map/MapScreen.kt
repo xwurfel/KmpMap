@@ -52,85 +52,28 @@ fun MapScreen(
 
     BindEffect(viewModel.permissionsController)
 
-    LaunchedEffect(pendingRouteDestination) {
-        pendingRouteDestination?.let { destination ->
-            println("MapScreen: Detected pending route destination: $destination")
-            viewModel.setRouteDestination(destination)
-            routeManager.clearPendingRoute()
-        }
-    }
+    HandlePendingRoute(
+        pendingDestination = pendingRouteDestination,
+        onRouteSet = viewModel::setRouteDestination,
+        onRouteClear = routeManager::clearPendingRoute
+    )
 
-    LaunchedEffect(uiState.errorMessage) {
-        uiState.errorMessage?.let { message ->
-            val result = snackbarHostState.showSnackbar(
-                message = message,
-                actionLabel = if (uiState.locationPermissionState == PermissionState.DeniedAlways) "Settings" else null,
-                duration = SnackbarDuration.Long
-            )
-
-            if (result == SnackbarResult.ActionPerformed &&
-                uiState.locationPermissionState == PermissionState.DeniedAlways
-            ) {
-                viewModel.openAppSettings()
-            }
-
-            viewModel.clearError()
-        }
-    }
+    HandleErrorMessages(
+        errorMessage = uiState.errorMessage,
+        permissionState = uiState.locationPermissionState,
+        snackbarHostState = snackbarHostState,
+        onOpenSettings = viewModel::openAppSettings,
+        onErrorCleared = viewModel::clearError
+    )
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                if (uiState.showRouteToLocation != null) {
-                    SmallFloatingActionButton(
-                        onClick = { viewModel.clearRoute() },
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    ) {
-                        Icon(
-                            Icons.Default.Clear,
-                            contentDescription = "Clear Route",
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-
-                FloatingActionButton(
-                    onClick = {
-                        when (uiState.locationPermissionState) {
-                            PermissionState.Granted -> viewModel.getCurrentLocation()
-
-                            PermissionState.NotGranted,
-                            PermissionState.NotDetermined,
-                            PermissionState.Denied -> viewModel.requestLocationPermission()
-
-                            PermissionState.DeniedAlways -> viewModel.openAppSettings()
-                        }
-                    },
-                    containerColor = when (uiState.locationPermissionState) {
-                        PermissionState.Granted -> MaterialTheme.colorScheme.primary
-                        PermissionState.DeniedAlways -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.secondary
-                    }
-                ) {
-                    when (uiState.locationPermissionState) {
-                        PermissionState.DeniedAlways -> Icon(
-                            Icons.Default.Settings,
-                            contentDescription = "Open Settings",
-                            modifier = Modifier.size(24.dp)
-                        )
-
-                        else -> Icon(
-                            Icons.Default.MyLocation,
-                            contentDescription = "Current Location",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
+            MapFloatingActions(
+                uiState = uiState,
+                onClearRoute = viewModel::clearRoute,
+                onLocationAction = viewModel::handleLocationAction
+            )
         }
     ) { paddingValues ->
         Box(
@@ -144,69 +87,208 @@ fun MapScreen(
                 pois = uiState.pois,
                 onMapLongClick = onNavigateToAddPoi,
                 onPoiClick = { poi -> onNavigateToPoiDetails(poi.id) },
-                onMapLoaded = { viewModel.onMapLoaded() },
+                onMapLoaded = viewModel::onMapLoaded,
                 showRouteToLocation = uiState.showRouteToLocation,
                 routePoints = uiState.routePoints
             )
 
-            if (!uiState.hasLocationPermission && uiState.locationPermissionState == PermissionState.NotDetermined) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Text(
-                            text = "Location access is needed to show your current position and provide location-based features.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+            PermissionRequestOverlay(
+                showOverlay = !uiState.hasLocationPermission &&
+                        uiState.locationPermissionState == PermissionState.NotDetermined,
+                onGrantPermission = viewModel::requestLocationPermission
+            )
 
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = { viewModel.requestLocationPermission() },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Grant Permission")
-                            }
-                        }
-                    }
-                }
+            LoadingStates(
+                uiState = uiState,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Composable
+private fun HandlePendingRoute(
+    pendingDestination: Location?,
+    onRouteSet: (Location?) -> Unit,
+    onRouteClear: () -> Unit
+) {
+    LaunchedEffect(pendingDestination) {
+        pendingDestination?.let { destination ->
+            println("MapScreen: Detected pending route destination: $destination")
+            onRouteSet(destination)
+            onRouteClear()
+        }
+    }
+}
+
+@Composable
+private fun HandleErrorMessages(
+    errorMessage: String?,
+    permissionState: PermissionState,
+    snackbarHostState: SnackbarHostState,
+    onOpenSettings: () -> Unit,
+    onErrorCleared: () -> Unit
+) {
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { message ->
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = if (permissionState == PermissionState.DeniedAlways) "Settings" else null,
+                duration = SnackbarDuration.Long
+            )
+
+            if (result == SnackbarResult.ActionPerformed &&
+                permissionState == PermissionState.DeniedAlways
+            ) {
+                onOpenSettings()
             }
 
-            if (uiState.isLoading) {
-                LoadingOverlay(
-                    modifier = Modifier.align(Alignment.Center)
+            onErrorCleared()
+        }
+    }
+}
+
+@Composable
+private fun MapFloatingActions(
+    uiState: MapViewModel.MapUiState,
+    onClearRoute: () -> Unit,
+    onLocationAction: () -> Unit
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.End
+    ) {
+        RouteActionButton(
+            showButton = uiState.showRouteToLocation != null,
+            onClearRoute = onClearRoute
+        )
+
+        LocationActionButton(
+            permissionState = uiState.locationPermissionState,
+            onLocationAction = onLocationAction
+        )
+    }
+}
+
+@Composable
+private fun RouteActionButton(
+    showButton: Boolean,
+    onClearRoute: () -> Unit
+) {
+    if (showButton) {
+        SmallFloatingActionButton(
+            onClick = onClearRoute,
+            containerColor = MaterialTheme.colorScheme.secondary
+        ) {
+            Icon(
+                Icons.Default.Clear,
+                contentDescription = "Clear Route",
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocationActionButton(
+    permissionState: PermissionState,
+    onLocationAction: () -> Unit
+) {
+    FloatingActionButton(
+        onClick = onLocationAction,
+        containerColor = when (permissionState) {
+            PermissionState.Granted -> MaterialTheme.colorScheme.primary
+            PermissionState.DeniedAlways -> MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.secondary
+        }
+    ) {
+        val (icon, contentDescription) = when (permissionState) {
+            PermissionState.DeniedAlways -> Icons.Default.Settings to "Open Settings"
+            else -> Icons.Default.MyLocation to "Current Location"
+        }
+
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun PermissionRequestOverlay(
+    showOverlay: Boolean,
+    onGrantPermission: () -> Unit
+) {
+    if (showOverlay) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Location access is needed to show your current position and provide location-based features.",
+                    style = MaterialTheme.typography.bodyMedium
                 )
-            }
 
-            if (uiState.isLoadingRoute) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+                Button(
+                    onClick = onGrantPermission,
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Text(
-                            text = "Calculating walking route...",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
+                    Text("Grant Permission")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LoadingStates(
+    uiState: MapViewModel.MapUiState,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+        if (uiState.isLoading) {
+            LoadingOverlay(
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+
+        if (uiState.isLoadingRoute) {
+            RouteLoadingIndicator(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun RouteLoadingIndicator(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp
+            )
+            Text(
+                text = "Calculating walking route...",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
