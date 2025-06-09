@@ -18,7 +18,6 @@ class FileRepositoryImpl : FileRepository {
     override suspend fun saveImage(imageBytes: ByteArray, fileName: String): String? =
         withContext(Dispatchers.IO) {
             try {
-                // Ensure images directory exists
                 val imagesDir = FileKit.filesDir / "images"
                 if (!imagesDir.exists()) {
                     imagesDir.createDirectories()
@@ -28,12 +27,10 @@ class FileRepositoryImpl : FileRepository {
                 val imageFile = imagesDir / fileName
                 imageFile.write(imageBytes)
 
-                // Return relative path for database storage
                 val relativePath = "images/$fileName"
                 println("FileRepository: Image saved successfully at: ${imageFile.path}")
                 println("FileRepository: Returning relative path: $relativePath")
 
-                // Verify the file was actually saved
                 if (imageFile.exists()) {
                     val fileSize = imageFile.readBytes().size
                     println("FileRepository: Verification successful - file exists with size: $fileSize bytes")
@@ -52,7 +49,12 @@ class FileRepositoryImpl : FileRepository {
     override suspend fun loadImage(path: String): ByteArray? =
         withContext(Dispatchers.IO) {
             try {
-                val file = FileKit.filesDir / path
+                val file = if (path.startsWith("/") || path.contains(":\\")) {
+                    io.github.vinceglb.filekit.PlatformFile(path)
+                } else {
+                    FileKit.filesDir / path
+                }
+
                 if (file.exists()) {
                     val bytes = file.readBytes()
                     println("FileRepository: Image loaded successfully from: $path")
@@ -71,7 +73,12 @@ class FileRepositoryImpl : FileRepository {
     override suspend fun deleteImage(path: String) =
         withContext(Dispatchers.IO) {
             try {
-                val file = FileKit.filesDir / path
+                val file = if (path.startsWith("/") || path.contains(":\\")) {
+                    io.github.vinceglb.filekit.PlatformFile(path)
+                } else {
+                    FileKit.filesDir / path
+                }
+
                 if (file.exists()) {
                     val deleted = file.delete()
                     println("FileRepository: Image deleted: $deleted from path: $path")

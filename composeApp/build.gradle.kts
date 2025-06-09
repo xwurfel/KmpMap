@@ -76,6 +76,8 @@ kotlin {
             implementation(libs.filekit.dialogs.compose)
             implementation(libs.filekit.coil)
 
+            implementation(libs.coil.compose)
+
             // Moko permissions
             implementation(libs.moko.permissions)
             implementation(libs.moko.permissions.compose)
@@ -119,9 +121,6 @@ kotlin {
             // Permissions
             implementation(libs.accompanist.permissions)
 
-            // Coil
-            implementation(libs.coil.compose)
-
             // Ktor Android
             implementation(libs.ktor.client.android)
         }
@@ -161,6 +160,37 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    buildFeatures {
+        buildConfig = true
+    }
+}
+
+buildkonfig {
+    packageName = "com.jetbrains.kmpapp"
+
+    defaultConfigs {
+        val mapsApiKey = project.findProperty("MAPS_API_KEY")?.toString()
+            ?: providers.gradleProperty("MAPS_API_KEY").orNull
+            ?: "DEFAULT_KEY"
+
+        buildConfigField(
+            type = com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING,
+            name = "MAPS_API_KEY",
+            value = mapsApiKey
+        )
+
+        buildConfigField(
+            type = com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING,
+            name = "APP_VERSION",
+            value = "\"${project.version}\""
+        )
+
+        buildConfigField(
+            type = com.codingfeline.buildkonfig.compiler.FieldSpec.Type.BOOLEAN,
+            name = "DEBUG_MODE",
+            value = "false"
+        )
+    }
 }
 
 secrets {
@@ -168,18 +198,6 @@ secrets {
     defaultPropertiesFileName = "local.defaults.properties"
     ignoreList.add("keyToIgnore")
     ignoreList.add("sdk.*")
-}
-
-buildkonfig {
-    packageName = "com.jetbrains.kmpapp"
-
-    defaultConfigs {
-        buildConfigField(
-            type = com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING,
-            name = "MAPS_API_KEY",
-            value = project.findProperty("MAPS_API_KEY")?.toString() ?: "DEFAULT_KEY"
-        )
-    }
 }
 
 sqldelight {

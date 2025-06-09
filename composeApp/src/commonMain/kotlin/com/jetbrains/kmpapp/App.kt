@@ -6,15 +6,26 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import coil3.ImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
 import com.jetbrains.kmpapp.presentation.add_poi.AddPoiScreen
 import com.jetbrains.kmpapp.presentation.map.MapScreen
 import com.jetbrains.kmpapp.presentation.navigation.Destinations
 import com.jetbrains.kmpapp.presentation.poi_details.PoiDetailsScreen
+import io.github.vinceglb.filekit.coil.addPlatformFileSupport
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 @Preview
 fun App() {
+    setSingletonImageLoaderFactory { context ->
+        ImageLoader.Builder(context)
+            .components {
+                addPlatformFileSupport()
+            }
+            .build()
+    }
+
     MaterialTheme {
         val navController = rememberNavController()
 
