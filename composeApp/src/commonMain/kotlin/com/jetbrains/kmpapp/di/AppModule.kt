@@ -27,7 +27,7 @@ val dataModule = module {
     single<PoiRepository> { PoiRepositoryImpl(get()) }
     single<FileRepository> { FileRepositoryImpl() }
     single<DirectionsService> {
-        GoogleDirectionsService(apiKey = "AIzaSyBkiEevi-fKLO3HvpWAi3YPSxu0yPsqXDU")
+        GoogleDirectionsService(apiKey = BuildKonfig.MAPS_API_KEY)
     }
 
     single { RouteManager() }
