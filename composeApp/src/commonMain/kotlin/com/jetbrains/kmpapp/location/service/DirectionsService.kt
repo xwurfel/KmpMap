@@ -9,6 +9,7 @@ import io.ktor.client.request.parameter
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -38,7 +39,8 @@ class GoogleDirectionsService(
                         parameter("origin", "${origin.latitude},${origin.longitude}")
                         parameter("destination", "${destination.latitude},${destination.longitude}")
                         parameter("key", apiKey)
-                        parameter("mode", "driving")
+                        parameter("mode", "walking")
+                        parameter("alternatives", "false")
                     }
 
                 val directionsResponse = response.body<DirectionsResponse>()
@@ -47,19 +49,18 @@ class GoogleDirectionsService(
                     val route = directionsResponse.routes.first()
                     return@withContext decodePolyline(route.overviewPolyline.points)
                 } else {
-                    // Fallback to straight line if API fails
                     return@withContext createStraightLineRoute(origin, destination)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                // Fallback to straight line if API fails
+                ensureActive()
                 return@withContext createStraightLineRoute(origin, destination)
             }
         }
 
     private fun createStraightLineRoute(start: Location, end: Location): List<Location> {
         val points = mutableListOf<Location>()
-        val steps = 10
+        val steps = 20
 
         for (i in 0..steps) {
             val fraction = i.toDouble() / steps

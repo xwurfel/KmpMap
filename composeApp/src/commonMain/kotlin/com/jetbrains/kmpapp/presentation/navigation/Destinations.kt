@@ -8,12 +8,6 @@ sealed interface Destinations {
     data object Map : Destinations
 
     @Serializable
-    data class MapWithRoute(
-        val destinationLatitude: Double,
-        val destinationLongitude: Double
-    ) : Destinations
-
-    @Serializable
     data class AddPoi(
         val latitude: Double,
         val longitude: Double

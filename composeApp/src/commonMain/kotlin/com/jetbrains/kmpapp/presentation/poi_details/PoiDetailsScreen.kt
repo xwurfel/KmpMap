@@ -42,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.jetbrains.kmpapp.point_of_interest.model.PointOfInterest
 import com.jetbrains.kmpapp.presentation.common.LoadingOverlay
 import com.jetbrains.kmpapp.presentation.common.PoiImage
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -55,7 +54,7 @@ import org.koin.compose.viewmodel.koinViewModel
 fun PoiDetailsScreen(
     poiId: Long,
     onNavigateBack: () -> Unit,
-    onNavigateToMap: (PointOfInterest) -> Unit,
+    onNavigateToMapWithRoute: () -> Unit,
     viewModel: PoiDetailsViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -193,7 +192,9 @@ fun PoiDetailsScreen(
                                     }
 
                                     Button(
-                                        onClick = { cameraLauncher.launch() },
+                                        onClick = {
+                                            cameraLauncher.launch()
+                                        },
                                         modifier = Modifier.weight(1f),
                                         enabled = !uiState.isLoading
                                     ) {
@@ -251,12 +252,15 @@ fun PoiDetailsScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
-                                onClick = { onNavigateToMap(poi) },
+                                onClick = {
+                                    viewModel.requestRoute()
+                                    onNavigateToMapWithRoute()
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(Icons.Default.Navigation, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Show Route")
+                                Text("Show Walking Route")
                             }
 
                             Button(

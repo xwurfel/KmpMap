@@ -10,6 +10,7 @@ import com.jetbrains.kmpapp.point_of_interest.repository.PoiRepository
 import com.jetbrains.kmpapp.point_of_interest.repository.PoiRepositoryImpl
 import com.jetbrains.kmpapp.presentation.add_poi.AddPoiViewModel
 import com.jetbrains.kmpapp.presentation.map.MapViewModel
+import com.jetbrains.kmpapp.presentation.navigation.RouteManager
 import com.jetbrains.kmpapp.presentation.poi_details.PoiDetailsViewModel
 import org.ilnytskyi.mappincmp.data.database.MapPinDatabase
 import org.koin.core.context.startKoin
@@ -26,12 +27,14 @@ val dataModule = module {
     single<PoiRepository> { PoiRepositoryImpl(get()) }
     single<FileRepository> { FileRepositoryImpl() }
     single<DirectionsService> {
-        GoogleDirectionsService(apiKey = BuildKonfig.MAPS_API_KEY)
+        GoogleDirectionsService(apiKey = "AIzaSyBkiEevi-fKLO3HvpWAi3YPSxu0yPsqXDU")
     }
+
+    single { RouteManager() }
 }
 
 val viewModelModule = module {
-    factoryOf(::MapViewModel)
+    single { MapViewModel(get(), get(), get(), get()) }
     factoryOf(::PoiDetailsViewModel)
     factoryOf(::AddPoiViewModel)
 }
@@ -45,4 +48,3 @@ fun initKoin() {
         )
     }
 }
-

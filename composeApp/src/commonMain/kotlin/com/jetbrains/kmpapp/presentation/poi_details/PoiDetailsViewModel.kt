@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.jetbrains.kmpapp.point_of_interest.model.PointOfInterest
 import com.jetbrains.kmpapp.point_of_interest.repository.FileRepository
 import com.jetbrains.kmpapp.point_of_interest.repository.PoiRepository
+import com.jetbrains.kmpapp.presentation.navigation.RouteManager
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +16,8 @@ import kotlinx.datetime.Clock
 
 class PoiDetailsViewModel(
     private val poiRepository: PoiRepository,
-    private val fileRepository: FileRepository
+    private val fileRepository: FileRepository,
+    private val routeManager: RouteManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PoiDetailsUiState())
@@ -150,6 +152,16 @@ class PoiDetailsViewModel(
                     errorMessage = "Failed to delete POI: ${e.message}"
                 )
             }
+        }
+    }
+
+    fun requestRoute() {
+        val poi = _uiState.value.poi
+        if (poi != null) {
+            println("PoiDetailsViewModel: Requesting route to ${poi.location}")
+            routeManager.requestRoute(poi.location)
+        } else {
+            println("PoiDetailsViewModel: Cannot request route - no POI loaded")
         }
     }
 

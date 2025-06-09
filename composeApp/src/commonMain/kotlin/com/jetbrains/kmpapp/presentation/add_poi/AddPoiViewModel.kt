@@ -14,6 +14,8 @@ import dev.icerock.moko.permissions.PermissionsController
 import dev.icerock.moko.permissions.camera.CAMERA
 import dev.icerock.moko.permissions.storage.STORAGE
 import io.github.vinceglb.filekit.PlatformFile
+import io.github.vinceglb.filekit.name
+import io.github.vinceglb.filekit.path
 import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -109,6 +111,7 @@ class AddPoiViewModel(
     }
 
     fun setLocation(latitude: Double, longitude: Double) {
+        println("AddPoiViewModel: Setting location to $latitude, $longitude")
         _uiState.value = _uiState.value.copy(
             location = Location(latitude, longitude)
         )
@@ -123,6 +126,11 @@ class AddPoiViewModel(
     }
 
     fun updateImage(file: PlatformFile?) {
+        println("AddPoiViewModel: updateImage called with file: $file")
+        file?.let {
+            println("AddPoiViewModel: File path: ${it.path}")
+            println("AddPoiViewModel: File name: ${it.name}")
+        }
         _uiState.value = _uiState.value.copy(selectedImage = file)
     }
 
@@ -165,9 +173,13 @@ class AddPoiViewModel(
 
                 // Save image if selected
                 state.selectedImage?.let { imageFile ->
+                    println("AddPoiViewModel: Saving image from file: ${imageFile.path}")
                     val imageBytes = imageFile.readBytes()
+                    println("AddPoiViewModel: Image bytes size: ${imageBytes.size}")
                     val fileName = "poi_${Clock.System.now().toEpochMilliseconds()}.jpg"
+                    println("AddPoiViewModel: Generated filename: $fileName")
                     imagePath = fileRepository.saveImage(imageBytes, fileName)
+                    println("AddPoiViewModel: FileRepository returned path: $imagePath")
                 }
 
                 val poi = PointOfInterest(
@@ -178,13 +190,17 @@ class AddPoiViewModel(
                     createdAt = Clock.System.now()
                 )
 
-                poiRepository.savePoi(poi)
+                println("AddPoiViewModel: Saving POI: $poi")
+                val poiId = poiRepository.savePoi(poi)
+                println("AddPoiViewModel: POI saved with ID: $poiId")
 
                 _uiState.value = state.copy(
                     isLoading = false,
                     isSaved = true
                 )
             } catch (e: Exception) {
+                println("AddPoiViewModel: Error saving POI: ${e.message}")
+                e.printStackTrace()
                 _uiState.value = state.copy(
                     isLoading = false,
                     errorMessage = "Failed to save POI: ${e.message}"

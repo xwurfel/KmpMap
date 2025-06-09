@@ -25,33 +25,38 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jetbrains.kmpapp.location.model.Location
 import com.jetbrains.kmpapp.presentation.common.LoadingOverlay
+import com.jetbrains.kmpapp.presentation.navigation.RouteManager
 import dev.icerock.moko.permissions.PermissionState
 import dev.icerock.moko.permissions.compose.BindEffect
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun MapScreen(
     onNavigateToAddPoi: (Location) -> Unit,
     onNavigateToPoiDetails: (Long) -> Unit,
-    routeToLocation: Location? = null,
-    viewModel: MapViewModel = koinViewModel()
+    viewModel: MapViewModel = koinViewModel(),
+    routeManager: RouteManager = koinInject()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pendingRouteDestination by routeManager.pendingRouteDestination.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     BindEffect(viewModel.permissionsController)
 
-    LaunchedEffect(routeToLocation) {
-        routeToLocation?.let { destination ->
-            viewModel.showRouteTo(destination)
+    LaunchedEffect(pendingRouteDestination) {
+        pendingRouteDestination?.let { destination ->
+            println("MapScreen: Detected pending route destination: $destination")
+            viewModel.setRouteDestination(destination)
+            routeManager.clearPendingRoute()
         }
     }
 
@@ -196,7 +201,7 @@ fun MapScreen(
                             strokeWidth = 2.dp
                         )
                         Text(
-                            text = "Calculating route...",
+                            text = "Calculating walking route...",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }

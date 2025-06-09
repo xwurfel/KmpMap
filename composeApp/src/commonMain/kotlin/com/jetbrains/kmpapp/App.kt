@@ -6,7 +6,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.jetbrains.kmpapp.location.model.Location
 import com.jetbrains.kmpapp.presentation.add_poi.AddPoiScreen
 import com.jetbrains.kmpapp.presentation.map.MapScreen
 import com.jetbrains.kmpapp.presentation.navigation.Destinations
@@ -39,27 +38,6 @@ fun App() {
                 )
             }
 
-            composable<Destinations.MapWithRoute> { backStackEntry ->
-                val args = backStackEntry.toRoute<Destinations.MapWithRoute>()
-                MapScreen(
-                    onNavigateToAddPoi = { location ->
-                        navController.navigate(
-                            Destinations.AddPoi(
-                                latitude = location.latitude,
-                                longitude = location.longitude
-                            )
-                        )
-                    },
-                    onNavigateToPoiDetails = { poiId ->
-                        navController.navigate(Destinations.PoiDetails(poiId))
-                    },
-                    routeToLocation = Location(
-                        latitude = args.destinationLatitude,
-                        longitude = args.destinationLongitude
-                    )
-                )
-            }
-
             composable<Destinations.AddPoi> { backStackEntry ->
                 val args = backStackEntry.toRoute<Destinations.AddPoi>()
                 AddPoiScreen(
@@ -78,13 +56,8 @@ fun App() {
                     onNavigateBack = {
                         navController.popBackStack()
                     },
-                    onNavigateToMap = { poi ->
-                        navController.navigate(
-                            Destinations.MapWithRoute(
-                                destinationLatitude = poi.location.latitude,
-                                destinationLongitude = poi.location.longitude
-                            )
-                        ) {
+                    onNavigateToMapWithRoute = {
+                        navController.navigate(Destinations.Map) {
                             popUpTo(Destinations.Map) { inclusive = true }
                         }
                     }

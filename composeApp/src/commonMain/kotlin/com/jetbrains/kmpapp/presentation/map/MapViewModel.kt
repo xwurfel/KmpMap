@@ -13,11 +13,15 @@ import dev.icerock.moko.permissions.Permission
 import dev.icerock.moko.permissions.PermissionState
 import dev.icerock.moko.permissions.PermissionsController
 import dev.icerock.moko.permissions.location.LOCATION
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 
 class MapViewModel(
     private val poiRepository: PoiRepository,
@@ -131,33 +135,57 @@ class MapViewModel(
     }
 
     fun showRouteTo(destination: Location) {
+        println("MapViewModel: showRouteTo called with destination: $destination")
         val currentLocation = _uiState.value.currentLocation
         if (currentLocation != null) {
+            println("MapViewModel: Current location available: $currentLocation")
             _uiState.value = _uiState.value.copy(
                 isLoadingRoute = true,
                 errorMessage = null
             )
 
-            viewModelScope.launch {
-                try {
-                    val routePoints = directionsService.getRoute(currentLocation, destination)
+            CoroutineScope(SupervisorJob()).launch {
+                supervisorScope {
+                    try {
+                        println("MapViewModel: Calling DirectionsService.getRoute...")
+                        val routePoints = directionsService.getRoute(currentLocation, destination)
+                        println("MapViewModel: Received ${routePoints.size} route points")
 
-                    _uiState.value = _uiState.value.copy(
-                        showRouteToLocation = destination,
-                        routePoints = routePoints,
-                        isLoadingRoute = false
-                    )
-                } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoadingRoute = false,
-                        errorMessage = "Failed to calculate route: ${e.message}"
-                    )
+                        _uiState.value = _uiState.value.copy(
+                            showRouteToLocation = destination,
+                            routePoints = routePoints,
+                            isLoadingRoute = false
+                        )
+                    } catch (e: Exception) {
+                        println("MapViewModel: Error calculating route: ${e.message}")
+                        e.printStackTrace()
+                        ensureActive()
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingRoute = false,
+                            errorMessage = "Failed to calculate route: ${e.message}"
+                        )
+                    }
                 }
             }
         } else {
+            println("MapViewModel: No current location available")
             _uiState.value = _uiState.value.copy(
                 errorMessage = "Current location not available for route calculation"
             )
+        }
+    }
+
+    fun showRouteToPoi(poi: PointOfInterest) {
+        println("MapViewModel: showRouteToPoi called for POI: ${poi.title}")
+        showRouteTo(poi.location)
+    }
+
+    fun setRouteDestination(location: Location?) {
+        println("MapViewModel: setRouteDestination called with location: $location")
+        if (location != null) {
+            showRouteTo(location)
+        } else {
+            clearRoute()
         }
     }
 
