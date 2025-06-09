@@ -20,7 +20,7 @@ class FileRepositoryImpl : FileRepository {
                 val imagesDir = FileKit.filesDir / "images"
                 val imageFile = imagesDir / fileName
                 imageFile.write(imageBytes)
-                imageFile.path
+                "images/$fileName"
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
@@ -55,4 +55,15 @@ class FileRepositoryImpl : FileRepository {
     override suspend fun getImagePath(fileName: String): String {
         return "images/$fileName"
     }
+
+    override suspend fun getFullImagePath(relativePath: String): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val file = FileKit.filesDir / relativePath
+                if (file.exists()) file.path else null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
 }

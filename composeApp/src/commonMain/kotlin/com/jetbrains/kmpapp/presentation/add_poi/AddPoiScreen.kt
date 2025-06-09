@@ -40,7 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import com.jetbrains.kmpapp.presentation.common.PoiImage
 import dev.icerock.moko.permissions.PermissionState
 import dev.icerock.moko.permissions.compose.BindEffect
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -145,8 +145,8 @@ fun AddPoiScreen(
                     )
 
                     uiState.selectedImage?.let { imageFile ->
-                        AsyncImage(
-                            model = imageFile,
+                        PoiImage(
+                            imageSource = imageFile,
                             contentDescription = "Selected Image",
                             modifier = Modifier.fillMaxWidth().height(200.dp)
                                 .clip(RoundedCornerShape(8.dp))

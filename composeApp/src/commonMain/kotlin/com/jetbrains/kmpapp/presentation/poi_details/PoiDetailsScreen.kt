@@ -42,14 +42,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.jetbrains.kmpapp.point_of_interest.model.PointOfInterest
+import com.jetbrains.kmpapp.presentation.common.LoadingOverlay
+import com.jetbrains.kmpapp.presentation.common.PoiImage
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberCameraPickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
-import com.jetbrains.kmpapp.presentation.common.LoadingOverlay
 import org.koin.compose.viewmodel.koinViewModel
-import org.koin.core.annotation.KoinExperimentalAPI
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,19 +61,16 @@ fun PoiDetailsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Load POI when screen loads
     LaunchedEffect(poiId) {
         viewModel.loadPoi(poiId)
     }
 
-    // Navigate back when deleted or saved
     LaunchedEffect(uiState.isDeleted, uiState.isSaved) {
         if (uiState.isDeleted) {
             onNavigateBack()
         }
     }
 
-    // Show error messages
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
@@ -134,7 +130,6 @@ fun PoiDetailsScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             if (uiState.isEditing) {
-                                // Edit mode
                                 OutlinedTextField(
                                     value = uiState.title,
                                     onValueChange = viewModel::updateTitle,
@@ -154,7 +149,6 @@ fun PoiDetailsScreen(
                                     enabled = !uiState.isLoading
                                 )
                             } else {
-                                // View mode
                                 Text(
                                     text = poi.title,
                                     style = MaterialTheme.typography.headlineSmall
@@ -168,18 +162,16 @@ fun PoiDetailsScreen(
                                 }
                             }
 
-                            // Image section
                             if (uiState.isEditing) {
                                 Text(
                                     text = "Image",
                                     style = MaterialTheme.typography.titleMedium
                                 )
 
-                                // Show current or selected image
                                 val imageToShow = uiState.selectedImage ?: poi.imagePath
                                 imageToShow?.let {
-                                    AsyncImage(
-                                        model = it,
+                                    PoiImage(
+                                        imageSource = it,
                                         contentDescription = "POI Image",
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -188,7 +180,6 @@ fun PoiDetailsScreen(
                                     )
                                 }
 
-                                // Image selection buttons
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -210,10 +201,9 @@ fun PoiDetailsScreen(
                                     }
                                 }
                             } else {
-                                // View mode image
                                 poi.imagePath?.let { imagePath ->
-                                    AsyncImage(
-                                        model = imagePath,
+                                    PoiImage(
+                                        imageSource = imagePath,
                                         contentDescription = "POI Image",
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -225,7 +215,6 @@ fun PoiDetailsScreen(
                         }
                     }
 
-                    // Action buttons
                     if (uiState.isEditing) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),

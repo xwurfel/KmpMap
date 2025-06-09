@@ -5,4 +5,5 @@ interface FileRepository {
     suspend fun loadImage(path: String): ByteArray?
     suspend fun deleteImage(path: String): Boolean
     suspend fun getImagePath(fileName: String): String
+    suspend fun getFullImagePath(relativePath: String): String?
 }

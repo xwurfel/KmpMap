@@ -1,4 +1,3 @@
-import org.gradle.declarative.dsl.schema.FqName.Empty.packageName
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -9,6 +8,7 @@ plugins {
     alias(libs.plugins.sqldelight)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.secrets)
+    alias(libs.plugins.buildkonfig)
 }
 
 kotlin {
@@ -83,6 +83,14 @@ kotlin {
             implementation(libs.permissions.gallery)
             implementation(libs.permissions.location)
             implementation(libs.permissions.storage)
+
+            // Ktor for HTTP requests
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+
+            // Kotlinx Serialization
+            implementation(libs.kotlinx.serialization.json)
         }
 
         androidMain.dependencies {
@@ -113,11 +121,17 @@ kotlin {
 
             // Coil
             implementation(libs.coil.compose)
+
+            // Ktor Android
+            implementation(libs.ktor.client.android)
         }
 
         nativeMain.dependencies {
             // SQLDelight iOS
             implementation(libs.sqldelight.driver.native)
+
+            // Ktor iOS
+            implementation(libs.ktor.client.darwin)
         }
     }
 }
@@ -154,6 +168,18 @@ secrets {
     defaultPropertiesFileName = "local.defaults.properties"
     ignoreList.add("keyToIgnore")
     ignoreList.add("sdk.*")
+}
+
+buildkonfig {
+    packageName = "com.jetbrains.kmpapp"
+
+    defaultConfigs {
+        buildConfigField(
+            type = com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING,
+            name = "MAPS_API_KEY",
+            value = project.findProperty("MAPS_API_KEY")?.toString() ?: "DEFAULT_KEY"
+        )
+    }
 }
 
 sqldelight {

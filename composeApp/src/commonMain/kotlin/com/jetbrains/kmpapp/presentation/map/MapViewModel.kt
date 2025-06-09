@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jetbrains.kmpapp.location.model.Location
 import com.jetbrains.kmpapp.location.repository.LocationRepository
+import com.jetbrains.kmpapp.location.service.DirectionsService
 import com.jetbrains.kmpapp.point_of_interest.model.PointOfInterest
 import com.jetbrains.kmpapp.point_of_interest.repository.PoiRepository
 import dev.icerock.moko.permissions.DeniedAlwaysException
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 class MapViewModel(
     private val poiRepository: PoiRepository,
     private val locationRepository: LocationRepository,
+    private val directionsService: DirectionsService,
     val permissionsController: PermissionsController
 ) : ViewModel() {
 
@@ -131,14 +133,27 @@ class MapViewModel(
     fun showRouteTo(destination: Location) {
         val currentLocation = _uiState.value.currentLocation
         if (currentLocation != null) {
-            // For now, we'll create a simple straight line route
-            // In a real app, you'd use Google Directions API
-            val routePoints = createSimpleRoute(currentLocation, destination)
-
             _uiState.value = _uiState.value.copy(
-                showRouteToLocation = destination,
-                routePoints = routePoints
+                isLoadingRoute = true,
+                errorMessage = null
             )
+
+            viewModelScope.launch {
+                try {
+                    val routePoints = directionsService.getRoute(currentLocation, destination)
+
+                    _uiState.value = _uiState.value.copy(
+                        showRouteToLocation = destination,
+                        routePoints = routePoints,
+                        isLoadingRoute = false
+                    )
+                } catch (e: Exception) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingRoute = false,
+                        errorMessage = "Failed to calculate route: ${e.message}"
+                    )
+                }
+            }
         } else {
             _uiState.value = _uiState.value.copy(
                 errorMessage = "Current location not available for route calculation"
@@ -153,22 +168,6 @@ class MapViewModel(
         )
     }
 
-    private fun createSimpleRoute(start: Location, end: Location): List<Location> {
-        // Create a simple route with intermediate points
-        // In a real app, you'd use Google Directions API
-        val points = mutableListOf<Location>()
-        val steps = 10
-
-        for (i in 0..steps) {
-            val fraction = i.toDouble() / steps
-            val lat = start.latitude + (end.latitude - start.latitude) * fraction
-            val lng = start.longitude + (end.longitude - start.longitude) * fraction
-            points.add(Location(lat, lng))
-        }
-
-        return points
-    }
-
     fun onMapLoaded() {
         _uiState.value = _uiState.value.copy(isMapLoaded = true)
     }
@@ -180,6 +179,7 @@ class MapViewModel(
     data class MapUiState(
         val isLoading: Boolean = true,
         val isMapLoaded: Boolean = false,
+        val isLoadingRoute: Boolean = false,
         val hasLocationPermission: Boolean = false,
         val locationPermissionState: PermissionState = PermissionState.NotDetermined,
         val currentLocation: Location? = null,
